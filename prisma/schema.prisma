@@ -1,0 +1,102 @@
+// STRATA Prisma schema — SQLite locally, PostgreSQL-ready (swap provider).
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// PostType is a string in SQLite — validated at the API layer.
+// Allowed: "LISTING" | "MARKET" | "PORTFOLIO"
+
+model User {
+  id             String   @id @default(cuid())
+  walletAddress  String   @unique
+  username       String   @unique
+  bio            String?
+  avatar         String?
+  portfolioValue Float    @default(0)
+  ethBalance     Float    @default(2.4)
+  createdAt      DateTime @default(now())
+
+  posts        Post[]
+  following    Follow[]     @relation("follower")
+  followers    Follow[]     @relation("following")
+  feed         Feed?
+  investments  Investment[]
+  holdings     Holding[]
+}
+
+model Post {
+  id          String   @id @default(cuid())
+  type        String   // "LISTING" | "MARKET" | "PORTFOLIO"
+  content     String
+  createdAt   DateTime @default(now())
+  creatorId   String
+  creator     User     @relation(fields: [creatorId], references: [id])
+  imageUrl    String?
+
+  // LISTING-only fields (nullable for MARKET/PORTFOLIO)
+  address     String?
+  priceEth    Float?
+  yieldAPY    Float?
+  tokenSymbol String?
+  tokenSupply Int?
+  tokensSold  Int?     @default(0)
+  minInvest   Float?
+
+  // PORTFOLIO/MARKET extra
+  chartData   String?  // JSON array of { t, v }
+
+  likes       Int      @default(0)
+  investments Investment[]
+
+  @@index([createdAt])
+  @@index([creatorId])
+}
+
+model Follow {
+  followerId  String
+  followingId String
+  createdAt   DateTime @default(now())
+  follower    User     @relation("follower", fields: [followerId], references: [id])
+  following   User     @relation("following", fields: [followingId], references: [id])
+
+  @@id([followerId, followingId])
+  @@index([followingId])
+}
+
+// Fan-Out on Read materialized feed (one row per user, JSON array of postIds)
+model Feed {
+  userId  String @id
+  postIds String @default("[]") // JSON array, capped at 500 items
+  user    User   @relation(fields: [userId], references: [id])
+}
+
+model Investment {
+  id        String   @id @default(cuid())
+  userId    String
+  postId    String
+  amountEth Float
+  tokens    Int
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id])
+  post      Post     @relation(fields: [postId], references: [id])
+
+  @@index([userId])
+  @@index([postId])
+}
+
+model Holding {
+  id          String @id @default(cuid())
+  userId      String
+  tokenSymbol String
+  tokens      Int
+  entryPrice  Float
+  user        User   @relation(fields: [userId], references: [id])
+
+  @@unique([userId, tokenSymbol])
+}
