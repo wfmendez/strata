@@ -51,14 +51,37 @@ to each follower's feed. Reads are a single indexed lookup.
 
 ## Getting started
 
+You need a PostgreSQL URL. Two easy paths:
+
+- **Neon** (free, recommended) — sign up, create a project, copy the
+  pooled + direct connection strings.
+- **Local Docker**: `docker run -d --name strata-pg -e POSTGRES_PASSWORD=dev -p 5432:5432 postgres:16`
+
+Then:
+
 ```bash
-pnpm install
-pnpm exec prisma migrate deploy   # applies prisma/migrations
-pnpm db:seed
-pnpm dev                           # http://localhost:3000
+cp .env.example .env             # paste your Postgres URLs + a generated SESSION_SECRET
+pnpm install                     # runs `prisma generate` via postinstall
+pnpm exec prisma migrate deploy  # applies prisma/migrations
+pnpm db:seed                     # 5 users, 15 posts, 11 follows
+pnpm dev                         # http://localhost:3000
 ```
 
 Reset DB: `pnpm db:reset` · Run tests: `pnpm test`
+
+## Deploy to Vercel
+
+1. Push the repo to GitHub (already done).
+2. In Vercel, **Add New → Project → Import** `wfmendez/strata`.
+3. Open the project → **Storage → Create Database → Postgres**.
+   This provisions a Neon DB and auto-injects `DATABASE_URL` + `DIRECT_URL`.
+4. **Settings → Environment Variables**:
+   - `SESSION_SECRET` — generate with `node -e "console.log(require('crypto').randomBytes(48).toString('base64url'))"`
+   - `ALLOW_DEMO_AUTH` — `0` for prod
+5. **Redeploy.** The build runs `prisma migrate deploy && next build` so the
+   schema lands automatically on the Neon DB.
+6. Seed once: open Vercel Storage → SQL → paste the contents of
+   [prisma/seed.sql](prisma/seed.sql) (or run `DATABASE_URL=<prod-url> pnpm db:seed` from your laptop).
 
 ## Auth
 
