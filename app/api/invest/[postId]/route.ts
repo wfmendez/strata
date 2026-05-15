@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { getCurrentUser } from "@/lib/session";
+import { requireUser } from "@/lib/session";
+import { rateLimit } from "@/lib/rate-limit";
 
 export const dynamic = "force-dynamic";
 
@@ -8,7 +9,14 @@ export async function POST(
   req: NextRequest,
   { params }: { params: { postId: string } },
 ) {
-  const me = await getCurrentUser();
+  let me;
+  try {
+    me = await requireUser();
+  } catch {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+  if (!rateLimit(`invest:${me.id}`, 30, 60_000))
+    return NextResponse.json({ error: "rate limited" }, { status: 429 });
   const { amountEth } = await req.json();
   if (!amountEth || amountEth <= 0)
     return NextResponse.json({ error: "amountEth required" }, { status: 400 });

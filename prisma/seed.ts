@@ -33,7 +33,7 @@ async function main() {
       },
       {
         username: "fernando",
-        walletAddress: "0x9i0j1k2l3m4n5o6p7q8r9s0t1u2v3w4x5y6z7a8b",
+        walletAddress: "0x9a0b1c2d3e4f5a6b7c8d9e0f1a2b3c4d5e6f7a8b",
         bio: "Sourcing yield in LATAM. Property + protocol.",
         avatar: "https://i.pravatar.cc/200?img=33",
         portfolioValue: 8.5,
@@ -41,15 +41,15 @@ async function main() {
       },
       {
         username: "mayachen",
-        walletAddress: "0x3m4n5o6p7q8r9s0t1u2v3w4x5y6z7a8b9c0d1e2f",
+        walletAddress: "0x3a4b5c6d7e8f9a0b1c2d3e4f5a6b7c8d9e0f1a2b",
         bio: "🐋 Whale. Long real estate, longer cryptography.",
-        avatar: "https://i.pravatar.cc/200?img=5",
+        avatar: "https://i.pravatar.cc/200?img=49",
         portfolioValue: 93.1,
         ethBalance: 48.2,
       },
       {
         username: "jamesvolta",
-        walletAddress: "0x7q8r9s0t1u2v3w4x5y6z7a8b9c0d1e2f3a4b5c6d",
+        walletAddress: "0x7a8b9c0d1e2f3a4b5c6d7e8f9a0b1c2d3e4f5a6b",
         bio: "Builder. Skeptic. Buying NYC class-B at a discount.",
         avatar: "https://i.pravatar.cc/200?img=68",
         portfolioValue: 31.4,

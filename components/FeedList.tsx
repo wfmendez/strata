@@ -78,9 +78,11 @@ export function FeedList({ initialPosts }: { initialPosts: FeedPost[] }) {
         const { post } = await fetch(`/api/posts/${msg.postId}`).then((r) => r.json());
         if (!post) return;
         if (feedFilter !== "ALL" && post.type !== feedFilter) return;
-        setPosts((prev) =>
-          prev.some((p) => p.id === post.id) ? prev : [post, ...prev],
-        );
+        setPosts((prev) => {
+          // If already present, move to top with refreshed payload.
+          const filtered = prev.filter((p) => p.id !== post.id);
+          return [post, ...filtered];
+        });
       } catch {
         /* swallow */
       }

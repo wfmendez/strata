@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/session";
+import { rateLimit } from "@/lib/rate-limit";
 
 export const dynamic = "force-dynamic";
 
@@ -11,6 +12,10 @@ export async function POST(_: Request, { params }: { params: { id: string } }) {
   } catch {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
+  // 60 toggles / minute per user — anti-spam.
+  if (!rateLimit(`like:${me.id}`, 60, 60_000))
+    return NextResponse.json({ error: "rate limited" }, { status: 429 });
+
   const existing = await prisma.like.findUnique({
     where: { userId_postId: { userId: me.id, postId: params.id } },
   });

@@ -130,6 +130,26 @@ prisma/
 - Staggered entrance fade-up on every PostCard (Framer Motion)
 - Logo layers shift up 2px on hover, staggered by 40ms
 
+## Security model
+
+**Session cookies are HMAC-signed.** [lib/crypto.ts](lib/crypto.ts) signs `{ sub, iat, exp }` with HMAC-SHA256 using `SESSION_SECRET` (≥ 32 chars in prod). [lib/session.ts](lib/session.ts) verifies in constant time and rejects tampered or expired tokens. The cookie is `httpOnly`, `SameSite=Lax`, and `Secure` in production. The nonce cookie is signed the same way and has a 10-minute freshness window.
+
+**SIWE messages are fully validated.** [lib/siwe.ts](lib/siwe.ts) parses every field (`domain`, `address`, `uri`, `nonce`, `Issued At`) and `validateSiweMessage` rejects replays from other sites (`domain` / `uri` mismatch), stale messages (> 5 min old), wrong nonce, or malformed addresses — *before* the signature is verified by viem. The nonce is cleared after every verify attempt, success or failure.
+
+**CSRF defense.** [middleware.ts](middleware.ts) blocks any `POST`/`PUT`/`PATCH`/`DELETE` whose `Origin` header doesn't match the request `Host`. Combined with `SameSite=Lax`, this closes the gap that lets `fetch()` from a malicious site trigger state changes.
+
+**CSP and security headers.** The middleware sets:
+- `Content-Security-Policy` restricting `img-src` to known image hosts + uploads, `connect-src` to self + CoinGecko, `frame-ancestors 'none'`, `form-action 'self'`
+- `X-Frame-Options: DENY`, `X-Content-Type-Options: nosniff`, `Referrer-Policy: strict-origin-when-cross-origin`, `Permissions-Policy` denying camera/mic/geo
+
+**Rate limits** (in-memory, per-IP or per-user) on every state-changing or expensive endpoint. See [lib/rate-limit.ts](lib/rate-limit.ts). Swap for `@upstash/ratelimit` in serverless.
+
+**Uploads are validated by magic bytes**, not by the client-supplied `Content-Type`. [lib/image-sniff.ts](lib/image-sniff.ts) checks the first bytes against JPEG/PNG/GIF/WEBP signatures and rejects everything else — including SVG (which can embed scripts) and HTML disguised with an image mime type. Filenames are random, set server-side.
+
+**Image hosts are allowlisted.** `POST /api/posts` rejects any `imageUrl` outside `/uploads/`, Unsplash, pravatar, or picsum — preventing posts from pointing at attacker-controlled origins.
+
+**Env vars:** see [.env.example](.env.example). `SESSION_SECRET` is required in production; `ALLOW_DEMO_AUTH=0` disables the demo user picker.
+
 ## Production notes
 
 This is a portfolio reference, but the path to production is concrete:
