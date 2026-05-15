@@ -5,11 +5,11 @@ generator client {
 }
 
 datasource db {
-  provider  = "postgresql"
-  // Vercel + Neon auto-inject both vars when you add Postgres storage.
-  // `url` is pgbouncer-pooled (runtime); `directUrl` is direct (migrations).
-  url       = env("DATABASE_URL")
-  directUrl = env("DATABASE_URL_UNPOOLED")
+  provider = "postgresql"
+  // Single URL for both runtime and migrations. If your Neon integration
+  // provides DATABASE_URL_UNPOOLED, you can add it back as `directUrl` for
+  // marginally faster + safer migrations under pgbouncer.
+  url      = env("DATABASE_URL")
 }
 
 // PostType is a string in SQLite — validated at the API layer.
