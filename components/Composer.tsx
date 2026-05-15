@@ -1,11 +1,14 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { X, Building2, LineChart, Wallet, ArrowLeft } from "lucide-react";
+import { X, Building2, LineChart, Wallet, ArrowLeft, ImagePlus, Loader2 } from "lucide-react";
+import { toast } from "sonner";
 import { useUI } from "@/lib/stores";
 import { cn } from "@/lib/cn";
 import { ethToUsd, fmtUsd } from "@/lib/format";
+import { useEthUsd } from "./PriceProvider";
+import { useFocusTrap } from "@/lib/useFocusTrap";
 import { useRouter } from "next/navigation";
 
 type Step = 1 | 2 | 3;
@@ -18,6 +21,8 @@ export function Composer() {
   const [form, setForm] = useState<any>({});
   const [busy, setBusy] = useState(false);
   const router = useRouter();
+  const dialogRef = useRef<HTMLDivElement>(null);
+  useFocusTrap(dialogRef, composerOpen, () => close());
 
   function close() {
     setComposer(false);
@@ -36,10 +41,12 @@ export function Composer() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ type, ...form }),
       });
-      if (res.ok) {
-        close();
-        router.refresh();
-      }
+      if (!res.ok) throw new Error((await res.json()).error ?? "Failed");
+      toast.success("Posted to STRATA");
+      close();
+      router.refresh();
+    } catch (e: any) {
+      toast.error("Couldn't post", { description: e.message });
     } finally {
       setBusy(false);
     }
@@ -54,8 +61,12 @@ export function Composer() {
           exit={{ opacity: 0 }}
           className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/60 px-4 py-10 backdrop-blur-md"
           onClick={close}
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="composer-title"
         >
           <motion.div
+            ref={dialogRef}
             initial={{ y: 24, opacity: 0, scale: 0.98 }}
             animate={{ y: 0, opacity: 1, scale: 1 }}
             exit={{ y: 12, opacity: 0 }}
@@ -74,7 +85,7 @@ export function Composer() {
                     <ArrowLeft size={18} />
                   </button>
                 )}
-                <h2 className="text-[15px] font-semibold tracking-wide">
+                <h2 id="composer-title" className="text-[15px] font-semibold tracking-wide">
                   {step === 1 && "New Post"}
                   {step === 2 && `New ${type}`}
                   {step === 3 && "Preview"}
@@ -106,12 +117,7 @@ export function Composer() {
                 />
               )}
               {step === 3 && type && (
-                <Preview
-                  type={type}
-                  form={form}
-                  busy={busy}
-                  onPost={submit}
-                />
+                <Preview type={type} form={form} busy={busy} onPost={submit} />
               )}
             </div>
           </motion.div>
@@ -158,6 +164,7 @@ function Form({
   onContinue: () => void;
 }) {
   const set = (k: string, v: any) => setForm({ ...form, [k]: v });
+  const price = useEthUsd();
 
   return (
     <div className="flex flex-col gap-4">
@@ -182,7 +189,7 @@ function Form({
               />
               {form.priceEth > 0 && (
                 <div className="mt-1 font-mono text-[11px] text-text-secondary">
-                  ≈ {fmtUsd(ethToUsd(form.priceEth))}
+                  ≈ {fmtUsd(ethToUsd(form.priceEth, price))}
                 </div>
               )}
             </Field>
@@ -223,12 +230,10 @@ function Form({
               />
             </Field>
           </div>
-          <Field label="Image URL">
-            <input
-              className={inputCls}
-              placeholder="https://picsum.photos/seed/..."
-              value={form.imageUrl ?? ""}
-              onChange={(e) => set("imageUrl", e.target.value)}
+          <Field label="Property image">
+            <DropUpload
+              value={form.imageUrl}
+              onChange={(url) => set("imageUrl", url)}
             />
           </Field>
         </>
@@ -261,6 +266,97 @@ function Form({
   );
 }
 
+function DropUpload({
+  value,
+  onChange,
+}: {
+  value?: string;
+  onChange: (url: string) => void;
+}) {
+  const [busy, setBusy] = useState(false);
+  const [dragging, setDragging] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  async function upload(file: File) {
+    setBusy(true);
+    try {
+      const fd = new FormData();
+      fd.append("file", file);
+      const res = await fetch("/api/upload", { method: "POST", body: fd });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Upload failed");
+      onChange(data.url);
+      toast.success("Image uploaded");
+    } catch (e: any) {
+      toast.error("Upload failed", { description: e.message });
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div
+      onDragOver={(e) => {
+        e.preventDefault();
+        setDragging(true);
+      }}
+      onDragLeave={() => setDragging(false)}
+      onDrop={(e) => {
+        e.preventDefault();
+        setDragging(false);
+        const file = e.dataTransfer.files[0];
+        if (file) upload(file);
+      }}
+      className={cn(
+        "relative flex flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed bg-surface-2 px-4 py-6 text-center transition-colors",
+        dragging ? "border-brand-violet bg-brand-violet/5" : "border-border",
+      )}
+    >
+      {value ? (
+        <>
+          <img src={value} alt="" className="max-h-32 rounded-lg" />
+          <button
+            type="button"
+            onClick={() => onChange("")}
+            className="text-[11px] text-text-secondary hover:text-error"
+          >
+            Remove
+          </button>
+        </>
+      ) : busy ? (
+        <Loader2 size={20} className="animate-spin text-brand-violet" />
+      ) : (
+        <>
+          <ImagePlus size={20} className="text-text-secondary" />
+          <div className="text-[12px] text-text-secondary">
+            Drop an image, or{" "}
+            <button
+              type="button"
+              onClick={() => inputRef.current?.click()}
+              className="text-brand-violet hover:underline"
+            >
+              browse
+            </button>
+          </div>
+          <div className="font-mono text-[10px] text-text-secondary">
+            JPG · PNG · WEBP · ≤ 5MB
+          </div>
+        </>
+      )}
+      <input
+        ref={inputRef}
+        type="file"
+        accept="image/*"
+        className="hidden"
+        onChange={(e) => {
+          const file = e.target.files?.[0];
+          if (file) upload(file);
+        }}
+      />
+    </div>
+  );
+}
+
 function Preview({ type, form, busy, onPost }: any) {
   return (
     <div>
@@ -268,15 +364,20 @@ function Preview({ type, form, busy, onPost }: any) {
         <div className="text-[11px] uppercase tracking-[0.16em] text-text-secondary">
           {type}
         </div>
+        {form.imageUrl && (
+          <img
+            src={form.imageUrl}
+            alt=""
+            className="mt-3 aspect-video w-full rounded-lg object-cover"
+          />
+        )}
         {form.address && (
           <div className="mt-2 text-[14px] font-semibold">{form.address}</div>
         )}
         {form.tokenSymbol && (
           <div className="font-mono text-[11px] text-gold">{form.tokenSymbol}</div>
         )}
-        {form.yieldAPY && (
-          <div className="mt-2 text-mint">{form.yieldAPY}% APY</div>
-        )}
+        {form.yieldAPY && <div className="mt-2 text-mint">{form.yieldAPY}% APY</div>}
         <p className="mt-3 whitespace-pre-wrap text-[14px] text-text-primary">
           {form.content}
         </p>

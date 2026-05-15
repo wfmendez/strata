@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/session";
+import { getEthUsd } from "@/lib/eth-price";
 import { fmtEth, fmtUsd, ethToUsd, timeAgo } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
@@ -10,7 +11,7 @@ export const metadata = {
 };
 
 export default async function PortfolioPage() {
-  const me = await getCurrentUser();
+  const [me, price] = await Promise.all([getCurrentUser(), getEthUsd()]);
   const [holdings, investments] = await Promise.all([
     prisma.holding.findMany({ where: { userId: me.id } }),
     prisma.investment.findMany({
@@ -35,7 +36,7 @@ export default async function PortfolioPage() {
       </header>
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-        <Stat title="Total Value" value={fmtUsd(ethToUsd(totalValue))} sub={fmtEth(totalValue)} highlight />
+        <Stat title="Total Value" value={fmtUsd(ethToUsd(totalValue, price))} sub={fmtEth(totalValue)} highlight />
         <Stat title="Holdings" value={String(holdings.length)} sub="distinct tokens" />
         <Stat title="Investments" value={String(investments.length)} sub="lifetime" />
       </div>
@@ -73,7 +74,7 @@ export default async function PortfolioPage() {
                     <td className="px-4 py-3 font-mono text-gold">{h.tokenSymbol}</td>
                     <td className="px-4 py-3">{h.tokens}</td>
                     <td className="px-4 py-3">{h.entryPrice.toFixed(5)} ETH</td>
-                    <td className="px-4 py-3">{fmtUsd(ethToUsd(value))}</td>
+                    <td className="px-4 py-3">{fmtUsd(ethToUsd(value, price))}</td>
                     <td className={"px-4 py-3 text-right font-mono " + (gain >= 0 ? "text-mint" : "text-error")}>
                       {gain >= 0 ? "+" : ""}
                       {gain.toFixed(2)}%

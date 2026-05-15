@@ -1,6 +1,8 @@
 import Image from "next/image";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
+import { getCurrentUser } from "@/lib/session";
+import { getEthUsd } from "@/lib/eth-price";
 import { fmtEth, fmtUsd, ethToUsd, shortAddr, timeAgo } from "@/lib/format";
 import { FollowButton } from "@/components/FollowButton";
 import type { Metadata } from "next";
@@ -39,6 +41,15 @@ export default async function ProfilePage({
     },
   });
   if (!user) notFound();
+  const [me, price] = await Promise.all([getCurrentUser(), getEthUsd()]);
+  const isMe = me.id === user.id;
+  const isFollowing = isMe
+    ? false
+    : !!(await prisma.follow.findUnique({
+        where: {
+          followerId_followingId: { followerId: me.id, followingId: user.id },
+        },
+      }));
 
   return (
     <div className="max-w-[680px] pb-16">
@@ -50,7 +61,7 @@ export default async function ProfilePage({
             className="absolute inset-0 opacity-10"
             style={{
               backgroundImage:
-                "url(https://picsum.photos/seed/strata-banner/1200/300)",
+                "url(https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?w=1200&h=300&fit=crop&q=80)",
               backgroundSize: "cover",
               backgroundPosition: "center",
               mixBlendMode: "luminosity",
@@ -74,7 +85,7 @@ export default async function ProfilePage({
                 </div>
               </div>
             </div>
-            <FollowButton userId={user.id} />
+            {!isMe && <FollowButton userId={user.id} initial={isFollowing} />}
           </div>
           <h1 className="mt-3 text-[22px] font-semibold">@{user.username}</h1>
           <div className="mt-1 font-mono text-[12px] text-text-secondary">
@@ -126,7 +137,7 @@ export default async function ProfilePage({
                     <td className="px-4 py-3 font-mono text-gold">{h.tokenSymbol}</td>
                     <td className="px-4 py-3">{h.tokens}</td>
                     <td className="px-4 py-3">{h.entryPrice.toFixed(5)} ETH</td>
-                    <td className="px-4 py-3">{fmtUsd(ethToUsd(value))}</td>
+                    <td className="px-4 py-3">{fmtUsd(ethToUsd(value, price))}</td>
                     <td
                       className={
                         "px-4 py-3 text-right font-mono " +

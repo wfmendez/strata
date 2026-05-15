@@ -6,24 +6,27 @@ import { Home, Compass, Wallet, User, Plus } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { useWallet, useUI } from "@/lib/stores";
 import { fmtEth, fmtUsd, ethToUsd, shortAddr } from "@/lib/format";
+import { useEthUsd } from "./PriceProvider";
 
-const nav = [
-  { href: "/", label: "Feed", icon: Home },
-  { href: "/explore", label: "Explore", icon: Compass },
-  { href: "/portfolio", label: "Portfolio", icon: Wallet },
-  { href: "/profile/alessandro", label: "Profile", icon: User },
-];
-
-export function Sidebar() {
+export function Sidebar({ username }: { username: string }) {
   const pathname = usePathname();
   const { ethBalance, address, setOpen } = useWallet();
   const { setComposer } = useUI();
+  const price = useEthUsd();
+
+  const nav = [
+    { href: "/", label: "Feed", icon: Home },
+    { href: "/explore", label: "Explore", icon: Compass },
+    { href: "/portfolio", label: "Portfolio", icon: Wallet },
+    { href: `/profile/${username}`, label: "Profile", icon: User },
+  ];
 
   return (
     <aside className="sticky top-[64px] hidden h-[calc(100vh-80px)] w-[260px] shrink-0 flex-col gap-6 lg:flex">
       <nav className="flex flex-col gap-1">
         {nav.map(({ href, label, icon: Icon }) => {
-          const active = pathname === href || (href !== "/" && pathname.startsWith(href));
+          const active =
+            pathname === href || (href !== "/" && pathname.startsWith(href));
           return (
             <Link
               key={href}
@@ -73,7 +76,7 @@ export function Sidebar() {
           {fmtEth(ethBalance)}
         </div>
         <div className="text-[12px] text-text-secondary">
-          ≈ {fmtUsd(ethToUsd(ethBalance))}
+          ≈ {fmtUsd(ethToUsd(ethBalance, price))}
         </div>
         <div className="mt-3 font-mono text-[11px] text-text-secondary">
           {shortAddr(address)}

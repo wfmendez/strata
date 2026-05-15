@@ -28,6 +28,7 @@ model User {
   feed         Feed?
   investments  Investment[]
   holdings     Holding[]
+  liked        Like[]
 }
 
 model Post {
@@ -51,11 +52,23 @@ model Post {
   // PORTFOLIO/MARKET extra
   chartData   String?  // JSON array of { t, v }
 
-  likes       Int      @default(0)
+  likes       Int      @default(0) // cached count for cheap reads
   investments Investment[]
+  likedBy     Like[]
 
   @@index([createdAt])
   @@index([creatorId])
+}
+
+model Like {
+  userId    String
+  postId    String
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id])
+  post      Post     @relation(fields: [postId], references: [id])
+
+  @@id([userId, postId])
+  @@index([postId])
 }
 
 model Follow {

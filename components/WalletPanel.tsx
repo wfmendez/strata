@@ -1,9 +1,12 @@
 "use client";
 
+import { useRef } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { X, ExternalLink, ArrowDownLeft, ArrowUpRight } from "lucide-react";
 import { useWallet } from "@/lib/stores";
 import { fmtEth, fmtUsd, ethToUsd, shortAddr } from "@/lib/format";
+import { useEthUsd } from "./PriceProvider";
+import { useFocusTrap } from "@/lib/useFocusTrap";
 
 const txns = [
   { id: 1, type: "in", label: "Yield · PROP-NYC-001", amount: +0.034, time: "2h" },
@@ -15,6 +18,9 @@ const txns = [
 
 export function WalletPanel() {
   const { panelOpen, setOpen, connected, address, ethBalance } = useWallet();
+  const price = useEthUsd();
+  const panelRef = useRef<HTMLElement>(null);
+  useFocusTrap(panelRef as any, panelOpen, () => setOpen(false));
 
   return (
     <AnimatePresence>
@@ -28,6 +34,10 @@ export function WalletPanel() {
             className="fixed inset-0 z-40 bg-black/50 backdrop-blur-sm"
           />
           <motion.aside
+            ref={panelRef as any}
+            role="dialog"
+            aria-modal="true"
+            aria-label="Wallet"
             initial={{ x: 480 }}
             animate={{ x: 0 }}
             exit={{ x: 480 }}
@@ -53,7 +63,7 @@ export function WalletPanel() {
                     {fmtEth(ethBalance)}
                   </div>
                   <div className="text-[13px] text-text-secondary">
-                    ≈ {fmtUsd(ethToUsd(ethBalance))}
+                    ≈ {fmtUsd(ethToUsd(ethBalance, price))}
                   </div>
                   <div className="mt-3 flex items-center justify-between font-mono text-[11px] text-text-secondary">
                     <span>{shortAddr(address)}</span>

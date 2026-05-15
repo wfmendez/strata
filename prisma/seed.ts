@@ -74,7 +74,7 @@ async function main() {
       tokenSupply: 1000,
       tokensSold: 612,
       minInvest: 0.05,
-      imageUrl: "https://picsum.photos/seed/strata-nyc/1200/720",
+      imageUrl: "https://images.unsplash.com/photo-1486325212027-8081e485255e?w=1200&h=720&fit=crop&q=80",
       likes: 84,
     },
   });
@@ -92,7 +92,7 @@ async function main() {
       tokenSupply: 500,
       tokensSold: 318,
       minInvest: 0.1,
-      imageUrl: "https://picsum.photos/seed/strata-mia/1200/720",
+      imageUrl: "https://images.unsplash.com/photo-1582719508461-905c673771fd?w=1200&h=720&fit=crop&q=80",
       likes: 142,
     },
   });
@@ -110,7 +110,7 @@ async function main() {
       tokenSupply: 750,
       tokensSold: 201,
       minInvest: 0.05,
-      imageUrl: "https://picsum.photos/seed/strata-aus/1200/720",
+      imageUrl: "https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?w=1200&h=720&fit=crop&q=80",
       likes: 51,
     },
   });

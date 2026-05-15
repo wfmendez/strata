@@ -13,11 +13,12 @@ export type FeedPost = {
   minInvest: number | null;
   chartData: string | null;
   likes: number;
+  likedByMe: boolean;
+  topInvestmentEth: number;
   creator: {
     id: string;
     username: string;
     avatar: string | null;
     walletAddress: string;
   };
-  investments?: { amountEth: number; createdAt: string }[];
 };

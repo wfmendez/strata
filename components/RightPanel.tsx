@@ -1,45 +1,58 @@
 import Image from "next/image";
+import { unstable_cache } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/session";
-import { shortAddr, fmtUsd, fmtEth } from "@/lib/format";
+import { fmtEth } from "@/lib/format";
 import { FollowButton } from "./FollowButton";
+
+// 30s cache on the cold parts of the panel (suggestions + trending).
+const getStaticPanel = unstable_cache(
+  async () => {
+    const [suggestions, trending] = await Promise.all([
+      prisma.user.findMany({
+        take: 8,
+        orderBy: { portfolioValue: "desc" },
+      }),
+      prisma.post.findMany({
+        where: { type: "LISTING" },
+        orderBy: { likes: "desc" },
+        take: 3,
+        select: {
+          id: true,
+          address: true,
+          tokenSymbol: true,
+          yieldAPY: true,
+          tokensSold: true,
+          tokenSupply: true,
+        },
+      }),
+    ]);
+    return { suggestions, trending };
+  },
+  ["right-panel"],
+  { revalidate: 30, tags: ["right-panel"] },
+);
 
 async function getData() {
   const me = await getCurrentUser();
-  const followingIds = (
-    await prisma.follow.findMany({
-      where: { followerId: me.id },
-      select: { followingId: true },
-    })
-  ).map((f) => f.followingId);
-
-  const suggestions = await prisma.user.findMany({
-    where: { id: { notIn: [me.id, ...followingIds] } },
-    take: 3,
-    orderBy: { portfolioValue: "desc" },
-  });
-
-  const trending = await prisma.post.findMany({
-    where: { type: "LISTING" },
-    orderBy: { likes: "desc" },
-    take: 3,
-    select: {
-      id: true,
-      address: true,
-      tokenSymbol: true,
-      yieldAPY: true,
-      tokensSold: true,
-      tokenSupply: true,
-    },
-  });
-
+  const { suggestions: pool, trending } = await getStaticPanel();
+  const followingIds = new Set(
+    (
+      await prisma.follow.findMany({
+        where: { followerId: me.id },
+        select: { followingId: true },
+      })
+    ).map((f) => f.followingId),
+  );
+  const suggestions = pool
+    .filter((u) => u.id !== me.id && !followingIds.has(u.id))
+    .slice(0, 3);
   return { suggestions, trending };
 }
 
 export async function RightPanel() {
   const { suggestions, trending } = await getData();
 
-  // Mocked market data — styled like a Bloomberg terminal.
   const market = [
     { sym: "ETH", price: 3401.22, chg: +1.84 },
     { sym: "BTC", price: 68_204.50, chg: -0.42 },
@@ -48,7 +61,6 @@ export async function RightPanel() {
 
   return (
     <aside className="sticky top-[64px] hidden h-[calc(100vh-80px)] w-[320px] shrink-0 flex-col gap-5 overflow-y-auto pr-1 xl:flex">
-      {/* Market pulse */}
       <div className="rounded-xl border border-border bg-surface p-4 font-mono text-[12px]">
         <div className="mb-3 flex items-center justify-between">
           <span className="text-[11px] uppercase tracking-[0.18em] text-text-secondary">
@@ -73,7 +85,6 @@ export async function RightPanel() {
         ))}
       </div>
 
-      {/* People to follow */}
       <div className="rounded-xl border border-border bg-surface p-4">
         <div className="mb-3 text-[11px] uppercase tracking-[0.18em] text-text-secondary">
           People to follow
@@ -98,13 +109,12 @@ export async function RightPanel() {
                   {fmtEth(u.portfolioValue)}
                 </div>
               </div>
-              <FollowButton userId={u.id} />
+              <FollowButton userId={u.id} initial={false} />
             </div>
           ))}
         </div>
       </div>
 
-      {/* Trending properties */}
       <div className="rounded-xl border border-border bg-surface p-4">
         <div className="mb-3 text-[11px] uppercase tracking-[0.18em] text-text-secondary">
           Trending Properties
@@ -122,12 +132,9 @@ export async function RightPanel() {
                   {p.address}
                 </div>
                 <div className="mt-2 h-1 overflow-hidden rounded-full bg-border">
-                  <div
-                    className="h-full bg-brand-gradient"
-                    style={{ width: `${pct}%` }}
-                  />
+                  <div className="h-full bg-brand-gradient" style={{ width: `${pct}%` }} />
                 </div>
-                <div className="mt-1 text-[10px] font-mono text-text-secondary">
+                <div className="mt-1 font-mono text-[10px] text-text-secondary">
                   {pct}% subscribed
                 </div>
               </div>

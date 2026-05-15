@@ -68,6 +68,29 @@ export function FeedList({ initialPosts }: { initialPosts: FeedPost[] }) {
     return () => io.disconnect();
   }, [loadMore]);
 
+  // Live updates via SSE
+  useEffect(() => {
+    const es = new EventSource("/api/feed/events");
+    es.onmessage = async (e) => {
+      try {
+        const msg = JSON.parse(e.data);
+        if (msg.type !== "post" || !msg.postId) return;
+        const { post } = await fetch(`/api/posts/${msg.postId}`).then((r) => r.json());
+        if (!post) return;
+        if (feedFilter !== "ALL" && post.type !== feedFilter) return;
+        setPosts((prev) =>
+          prev.some((p) => p.id === post.id) ? prev : [post, ...prev],
+        );
+      } catch {
+        /* swallow */
+      }
+    };
+    es.onerror = () => {
+      /* browser auto-reconnects */
+    };
+    return () => es.close();
+  }, [feedFilter]);
+
   return (
     <>
       <div className="sticky top-[60px] z-20 -mx-2 mb-4 flex items-center gap-1 rounded-2xl border border-border bg-bg/80 px-2 py-1.5 backdrop-blur">

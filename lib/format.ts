@@ -1,7 +1,7 @@
-const ETH_USD = 3400; // mock spot for display
+export const DEFAULT_ETH_USD = 3400;
 
-export function ethToUsd(eth: number) {
-  return eth * ETH_USD;
+export function ethToUsd(eth: number, price = DEFAULT_ETH_USD) {
+  return eth * price;
 }
 
 export function fmtUsd(n: number) {

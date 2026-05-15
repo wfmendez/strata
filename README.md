@@ -53,12 +53,23 @@ to each follower's feed. Reads are a single indexed lookup.
 
 ```bash
 pnpm install
-pnpm exec prisma db push --skip-generate
+pnpm exec prisma migrate deploy   # applies prisma/migrations
 pnpm db:seed
-pnpm dev   # http://localhost:3000
+pnpm dev                           # http://localhost:3000
 ```
 
-Reset DB: `pnpm db:reset`
+Reset DB: `pnpm db:reset` · Run tests: `pnpm test`
+
+## Auth
+
+Two paths:
+- **SIWE (real wallets)** — Sign-In with Ethereum. Nonce → personal_sign →
+  signature verified server-side with `viem.verifyMessage` → httpOnly
+  session cookie. Auto-provisions a user on first sign-in.
+- **Demo switcher** — pick any seeded user from the header dropdown.
+  Disable in production with `ALLOW_DEMO_AUTH=0`.
+
+The session is read in every server route via `lib/session.ts`.
 
 ## API
 
@@ -71,6 +82,15 @@ Reset DB: `pnpm db:reset`
 | `GET`    | `/api/users/:username`      | Profile + counts + holdings             |
 | `POST`   | `/api/invest/:postId`       | Mock invest (decrements ETH, mints tokens) |
 | `GET`    | `/api/portfolio`            | Current user's holdings + activity      |
+| `POST`   | `/api/posts/:id/like`       | Toggle like (persists in `Like` table)  |
+| `GET`    | `/api/posts/:id`            | Single post with `likedByMe` enrichment |
+| `GET`    | `/api/feed/events`          | SSE stream — emits new post IDs to subscribers |
+| `POST`   | `/api/upload`               | Multipart image upload (≤ 5 MB)         |
+| `GET`    | `/api/auth/nonce`           | SIWE nonce + cookie                     |
+| `POST`   | `/api/auth/verify`          | SIWE signature verify + set session     |
+| `POST`   | `/api/auth/demo`            | Demo sign-in by username                |
+| `POST`   | `/api/auth/logout`          | Clear session cookie                    |
+| `GET`    | `/api/auth/me`              | Current session user                    |
 
 ## Project shape
 
@@ -109,6 +129,25 @@ prisma/
 - Animated gradient avatar rings on profile pages
 - Staggered entrance fade-up on every PostCard (Framer Motion)
 - Logo layers shift up 2px on hover, staggered by 40ms
+
+## Production notes
+
+This is a portfolio reference, but the path to production is concrete:
+
+- **Database**: swap `provider = "sqlite"` → `"postgresql"` in `prisma/schema.prisma`,
+  set `DATABASE_URL` to a Neon/Supabase Postgres URL, run `prisma migrate deploy`.
+- **Fan-Out queue**: `lib/fanout.ts` is in-memory and resets per cold start.
+  For real deploys use Redis + BullMQ (or Upstash QStash / Vercel Queues) with
+  a separate worker process. The job shape (`{ postId, creatorId }`) and the
+  prepend-with-dedup-and-cap algorithm don't change.
+- **SSE**: `/api/feed/events` works on Node runtime but Vercel serverless
+  cuts streams at 30s. Either run on a node-server target or move to
+  WebSockets / Ably / Pusher for multi-instance deploys.
+- **Image storage**: `POST /api/upload` writes to `public/uploads/` — fine
+  for local. Swap for Vercel Blob / S3 in production (≤ 10 LoC change).
+- **Env vars**: `DATABASE_URL`, `ALLOW_DEMO_AUTH=0` to disable demo sign-in.
+- **CSP**: add a `Content-Security-Policy` header restricting img sources to
+  Unsplash / pravatar / your uploads CDN.
 
 ## Roadmap
 

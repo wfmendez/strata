@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/session";
+import { enrichPostsForUser } from "@/lib/feed-enrich";
 import { FeedList } from "@/components/FeedList";
 import type { FeedPost } from "@/lib/types";
 
@@ -15,25 +16,12 @@ async function getInitialFeed(): Promise<FeedPost[]> {
     where: { id: { in: slice } },
     include: {
       creator: { select: { id: true, username: true, avatar: true, walletAddress: true } },
-      investments: {
-        orderBy: { createdAt: "desc" },
-        take: 1,
-        select: { amountEth: true, createdAt: true },
-      },
     },
   });
   const byId = new Map(posts.map((p) => [p.id, p]));
-  return slice
-    .map((id) => byId.get(id))
-    .filter(Boolean)
-    .map((p: any) => ({
-      ...p,
-      createdAt: p.createdAt.toISOString(),
-      investments: p.investments?.map((i: any) => ({
-        ...i,
-        createdAt: i.createdAt.toISOString(),
-      })),
-    })) as FeedPost[];
+  const ordered = slice.map((id) => byId.get(id)).filter(Boolean) as typeof posts;
+  const enriched = await enrichPostsForUser(ordered, me.id);
+  return enriched as FeedPost[];
 }
 
 export default async function FeedPage() {
